@@ -1,0 +1,54 @@
+version: '3.5'
+
+services:
+  zookeeper1:
+    image: zookeeper:3.4
+    hostname: zookeeper1
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888
+
+  jobmanager1:
+    image: flink:1.10.0-scala_2.11 
+    expose:
+      - "6123"
+    ports:
+      - "${DC_FLINK_PORT-8081:}8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
+
+  taskmanager1: &taskmanager
+    image: flink:1.10.0-scala_2.11 
+    expose:
+      - "6121"
+      - "6122"
+    # prometheus
+      - "9101"
+    depends_on:
+      - jobmanager1
+    tmpfs: [ '/tmp:exec,mode=777' ]
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=3
+    entrypoint: |
+      bash -c "
+        #echo >>/opt/flink/conf/flink-conf.yaml env.java.opts: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 # enable for debugging - requires adding a ports: [ 5005:5005 ] and disabling taskmanager2
+        echo >>/opt/flink/conf/log4j-console.properties log4j.logger.org.wasmer=DEBUG # I wish!
+        env SEGFAULT_SIGNALS=all catchsegv /docker-entrypoint.sh taskmanager
+      "
+  taskmanager2: *taskmanager
+
+  job:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: &proxy
+        http_proxy: ${http_proxy-}
+        https_proxy: ${https_proxy-}
+        mavensonatypenexus: ${mavensonatypenexus-}
+    depends_on:
+      - jobmanager1
+      - taskmanager1
+      - taskmanager2

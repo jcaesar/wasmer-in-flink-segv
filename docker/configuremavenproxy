@@ -1,0 +1,42 @@
+#!/usr/bin/env python2
+
+# if it is somehow possible to get maven to use the *_proxy environment variables, or at least JAVA_ARGS (or anythin that does not require this script) please get rid of it.
+
+import os
+
+def keyvalid(k, kv):
+	return k in kv and kv[k] not in [None, ""]
+
+proxy=""
+if keyvalid('https_proxy', os.environ):
+	from urlparse import urlsplit, unquote
+	url = urlsplit(os.environ['https_proxy'])
+	auth=""
+	if url.username is not None:
+		auth = "{}<username>{}</username>".format(auth, unquote(url.username))
+	if url.password is not None:
+		auth = "{}<password>{}</password>".format(auth, url.password)
+	noproxy=""
+	if keyvalid('mavensonatypenexus', os.environ):
+		noproxy="<nonProxyHosts>{}</nonProxyHosts>".format(urlsplit(os.environ['mavensonatypenexus']).hostname)
+	proxy="""<proxies><proxy>
+		<id>autodetectenvvars</id>
+		<active>true</active>
+		<protocol>{}</protocol>
+		<host>{}</host>
+		<port>{}</port>
+		{}{}
+		</proxy></proxies>""".format(url.scheme, url.hostname, url.port, auth, noproxy)
+
+mirror=""
+if keyvalid('mavensonatypenexus', os.environ):
+	mirror="""<mirrors>
+		<mirror>
+			<id>central</id>
+			<name>central</name>
+			<url>{}</url>
+			<mirrorOf>central</mirrorOf>
+		</mirror>
+	</mirrors>""".format(os.environ['mavensonatypenexus'])
+
+print ("<settings>{}{}</settings>".format(proxy, mirror))
