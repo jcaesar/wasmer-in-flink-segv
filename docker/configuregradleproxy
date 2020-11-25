@@ -1,0 +1,30 @@
+#!/usr/bin/env python2
+
+# if it is somehow possible to get maven to use the *_proxy environment variables, or at least JAVA_ARGS (or anythin that does not require this script) please get rid of it.
+
+import os
+from urlparse import urlsplit, unquote
+
+def keyvalid(k, kv):
+	return k in kv and kv[k] not in [None, ""]
+
+proxy="systemProp.proxySet=\"true\"\n"
+do=False
+for k in ['http', 'https']:
+	if keyvalid(k + '_proxy', os.environ):
+		do = True
+		url = urlsplit(os.environ[k + '_proxy'])
+		auth=""
+		if url.username is not None:
+			auth = "{}systemProp.{}.proxyUser={}\n".format(auth, k, unquote(url.username))
+		if url.password is not None:
+			auth = "{}systemProp.{}.proxyPassword={}\n".format(auth, k, url.password)
+		noproxy=""
+		proxy="""{}
+			systemProp.{}.keepAlive="true"
+			systemProp.{}.proxyHost={}
+			systemProp.{}.proxyPort={}
+			{}""".format(proxy, k, k, url.hostname, k, url.port, auth)
+
+if do:
+	print("\n".join(l.strip() for l in proxy.splitlines()))
