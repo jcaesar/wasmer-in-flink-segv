@@ -60,14 +60,11 @@ RUN mkdir ~/.m2 && ./configuremavenproxy >~/.m2/settings.xml \
 	&& echo 'public class Dummy { void dumm() { } }' >> src/test/java/Dummy.java \
 	&& mvn -B clean package \
 	&& rm -rf target src
-RUN rm /root/.m2/repository/org/wasmer/wasmer-jni-amd64-linux/0.2.0/wasmer-jni-amd64-linux-0.2.0.jar
 COPY --from=jabuilder /build/libs/wasmer-jni-amd64-linux-0.2.0.jar /root/.m2/repository/org/wasmer/wasmer-jni-amd64-linux/0.2.0/wasmer-jni-amd64-linux-0.2.0.jar
-RUN find ~/.m2/repository/org/wasmer/ && sha256sum             /root/.m2/repository/org/wasmer/wasmer-jni-amd64-linux/0.2.0/wasmer-jni-amd64-linux-0.2.0.jar
 COPY . .
 RUN mvn -B clean package \
 	&& mv target/electric* /core/job.jar
 COPY --from=rubuilder /app/target/debug/chks.txt /core/
-RUN find ~/.m2/repository/org/wasmer/ && sha256sum /root/.m2/repository/org/wasmer/wasmer-jni-amd64-linux/0.2.0/wasmer-jni-amd64-linux-0.2.0.jar
 RUN unzip /core/job.jar org/wasmer/native/linux-amd64/libwasmer_jni.so && cd org/wasmer/native/linux-amd64/ && sha256sum -c </core/chks.txt
 
 FROM flink:1.10.0-scala_2.11
