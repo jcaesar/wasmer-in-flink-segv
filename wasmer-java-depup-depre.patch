@@ -1,0 +1,100 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 055448b..3563369 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -9,6 +9,8 @@ edition = "2018"
+ crate-type = ["cdylib"]
+ 
+ [dependencies]
+-wasmer-runtime = "0.17"
+-wasmer-runtime-core = "0.17"
++wasmer = { git = "https://github.com/wasmerio/wasmer", rev = "0a4a2c7d24d718e48eb9aa895292d3cbf950f7ed" }
++wasmer-runtime = { git = "https://github.com/wasmerio/wasmer", rev = "0a4a2c7d24d718e48eb9aa895292d3cbf950f7ed" }
++wasmer-runtime-core = { git = "https://github.com/wasmerio/wasmer", rev = "0a4a2c7d24d718e48eb9aa895292d3cbf950f7ed" }
++#wasmer-runtime-core = "0.17"
+ jni = "0.16"
+diff --git a/src/instance.rs b/src/instance.rs
+index e1bb7b3..c0972b6 100644
+--- a/src/instance.rs
++++ b/src/instance.rs
+@@ -12,7 +12,7 @@ use jni::{
+ };
+ use std::{collections::HashMap, convert::TryFrom, panic, rc::Rc};
+ use wasmer_runtime::{imports, instantiate, DynFunc, Export, Value as WasmValue};
+-use wasmer_runtime_core as core;
++use wasmer_runtime as core;
+ 
+ pub struct Instance {
+     pub java_instance_object: GlobalRef,
+@@ -37,7 +37,7 @@ impl Instance {
+         let memories: HashMap<String, Memory> = instance
+             .exports()
+             .filter_map(|(export_name, export)| match export {
+-                Export::Memory(memory) => Some((export_name, Memory::new(Rc::new(memory)))),
++                Export::Memory(memory) => Some((export_name.to_string(), Memory::new(Rc::new(memory.clone())))),
+                 _ => None,
+             })
+             .collect();
+@@ -53,7 +53,7 @@ impl Instance {
+         &self,
+         export_name: String,
+         arguments: Vec<WasmValue>,
+-    ) -> Result<Vec<WasmValue>, Error> {
++    ) -> Result<Box<[WasmValue]>, Error> {
+         let function: DynFunc = self.instance.exports.get(&export_name).map_err(|_| {
+             runtime_error(format!(
+                 "Exported function `{}` does not exist",
+diff --git a/src/memory.rs b/src/memory.rs
+index e606da4..20b9bb1 100644
+--- a/src/memory.rs
++++ b/src/memory.rs
+@@ -8,10 +8,11 @@ use jni::{
+     JNIEnv,
+ };
+ use std::{cell::Cell, panic, rc::Rc, slice};
+-use wasmer_runtime::{memory::MemoryView, Memory as WasmMemory};
+-use wasmer_runtime_core::units::Pages;
++use wasmer_runtime::memory::MemoryView;
++use wasmer_runtime::units::Pages;
++use wasmer::Memory as WasmMemory;
+ 
+-#[derive(Debug, Clone)]
++#[derive(Clone)]
+ pub struct Memory {
+     pub memory: Rc<WasmMemory>,
+ }
+diff --git a/src/module.rs b/src/module.rs
+index 6a0ec67..b2f6f50 100644
+--- a/src/module.rs
++++ b/src/module.rs
+@@ -11,7 +11,8 @@ use jni::{
+ };
+ use std::{collections::HashMap, panic, rc::Rc};
+ use wasmer_runtime::{self as runtime, validate, Export};
+-use wasmer_runtime_core::{cache::Artifact, imports, load_cache_with};
++use wasmer_runtime::{cache::Artifact, imports, load_cache_with};
++//use wasmer_runtime::cache::Artifact;
+ 
+ pub struct Module {
+     #[allow(unused)]
+@@ -49,9 +50,9 @@ impl Module {
+         java_module_object: GlobalRef,
+         serialized_module: Vec<u8>,
+     ) -> Result<Self, Error> {
+-        let module = match Artifact::deserialize(serialized_module.as_slice()) {
++        let module = match unsafe { Artifact::deserialize(serialized_module.as_slice()) } {
+             Ok(artifact) => {
+-                match unsafe { load_cache_with(artifact, &runtime::default_compiler()) } {
++                match load_cache_with(artifact) {
+                     Ok(module) => module,
+                     Err(_) => {
+                         return Err(runtime_error(format!(
+@@ -117,7 +118,7 @@ pub extern "system" fn Java_org_wasmer_Module_nativeInstantiate(
+         let memories: HashMap<String, Memory> = instance
+             .exports()
+             .filter_map(|(export_name, export)| match export {
+-                Export::Memory(memory) => Some((export_name, Memory::new(Rc::new(memory)))),
++                Export::Memory(memory) => Some((export_name.to_string(), Memory::new(Rc::new(memory.clone())))),
+                 _ => None,
+             })
+             .collect();

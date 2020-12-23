@@ -3,18 +3,13 @@
 
 FROM rust as src
 WORKDIR /src
-RUN wget https://github.com/wasmerio/wasmer/archive/0.17.0.tar.gz \
-	&& echo '0972d1d8c5d4e7b38bcc6866dadc55e33b61143288917053d2aaa2e5f41b7c1f  0.17.0.tar.gz' | sha256sum -c \
-	&& tar xvf 0.17.0.tar.gz \
-	&& mv wasmer-* wasmer \
-	&& rm 0.17.0.tar.gz
 RUN wget https://github.com/wasmerio/wasmer-java/archive/0.2.0.tar.gz \
 	&& echo '1c359f5af6dfced9e6afac1ab062a0a1a3734a0fda5ab39fb11d50c2a1d071d5  0.2.0.tar.gz' | sha256sum -c \
-	&& tar xvf 0.2.0.tar.gz \
+	&& tar xvf *.tar.gz \
 	&& mv wasmer-java-* wasmer-java \
-	&& rm 0.2.0.tar.gz
-COPY wasmer.patch .
-RUN patch -p1 <wasmer.patch && rm wasmer.patch
+	&& rm *.tar.gz
+COPY wasmer-java-depup-depre.patch .
+RUN cd wasmer-java && patch -p1 <../wasmer-java-depup-depre.patch && rm ../*.patch && rm Cargo.lock
 
 FROM maven:3.5.3-jdk-8 as jaheaders
 COPY ./docker/configuregradleproxy /usr/local/bin/
@@ -47,9 +42,8 @@ COPY ./docker/configuregradleproxy /usr/local/bin/
 COPY --from=src /src/wasmer-java/ .
 COPY --from=jaheaders /root/.gradle /root/.gradle
 COPY --from=rubuilder /app/wasmer-java/target/debug/libwasmer_jni.so /app/wasmer-java/target/debug/chks.txt artifacts/linux-amd64/
-RUN sed -ri 's/commandLine.*"build-rust".*$/commandLine "echo", "NOOP"/' build.gradle
 RUN cd artifacts/linux-amd64/ && sha256sum -c <chks.txt
-RUN ./gradlew --info build
+RUN ./gradlew --info build -x test -x buildRust
 RUN sha256sum /build/libs/wasmer-jni-amd64-linux-0.2.0.jar
 
 FROM maven:3.5.3-jdk-8 as build
