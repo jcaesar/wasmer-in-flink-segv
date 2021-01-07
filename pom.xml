@@ -49,14 +49,14 @@ under the License.
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
-		<repository>
+		<!--<repository>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
 			<id>bintray-wasmer-wasmer-jni</id>
 			<name>bintray</name>
 			<url>https://dl.bintray.com/wasmer/wasmer-jni</url>
-		</repository>
+		</repository>-->
 	</repositories>
 
 	<dependencies>
@@ -77,7 +77,7 @@ under the License.
 		<dependency>
 			<groupId>org.wasmer</groupId>
 			<artifactId>wasmer-jni-amd64-linux</artifactId>
-			<version>0.2.0</version>
+			<version>0.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
